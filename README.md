@@ -11,7 +11,11 @@ Returning or incoming signals are tuples of (decay, direction). These are drawn 
 
 There is also an option for ants to use path integration to keep track on how far they are from the hive and in which direction, and how far they are from their last known path point. This path integration uses the cosine rule to calculate how the current step has modified an ant's position relative to the previous step's calculation of hive position. It is known that at least some real ant species use path integration to return directly to hive, but in this simulation it often leads to 'tar pits', where ants get stuck in U-shapes and keep drawing routes, attracting more ants into the same trap. Adjusting values and adding heuristics for when to attempt a direct path and when to give up and rely on scent routes would improve it, but I'm currently more fascinated with pure scent routes.
 
-Requires Python 3.8, Numpy and Kivy, then:
+Requires Python 3.8, Numpy and Kivy,
+
+    pip install -r requirements.txt
+
+then:
 
     python pixelants.py
 
