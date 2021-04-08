@@ -3,6 +3,8 @@ Ant colony algorithm with [Numpy](https://numpy.org) and [Kivy](https://kivy.org
 
 This is a toy simulation for testing if the fast array handling from Numpy and the easy access to OpenGL bitmaps from Kivy are enough when drawing hundreds of ants with their pheromone paths. Seems to be so.
 
+<img width="477" alt="screenshot" src="https://user-images.githubusercontent.com/5269272/114096061-e520a300-98c6-11eb-8307-4a6864321c01.png">
+
 Ant colony algorithm here is a bit unrealistic, but interesting variation: foraging aka. outgoing ants leave one kind of a scent signal and returning ants leave another kind of a scent signal, and they always use the other kind of signal to help themselves navigate either towards food or towards home.
 
 Outgoing signals are tuples of (travel time, direction), where if an ant encounters a signal where travel time (time since last visit to the hive) is longer than its current travel time, it leaves a new signal with its current direction replacing the old one. Outgoing signal are visualised with hue corresponding to direction. Because the signals get replaced with ones suggesting a faster route to that point, they have an effect of slowly painting the world with fast routes from hive to each point.
