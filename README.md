@@ -1,5 +1,5 @@
 # PixelAnts
-Ant colony algorithm with [Numpy https://numpy.org] and [Kivy https://kivy.org].
+Ant colony algorithm with [Numpy](https://numpy.org) and [Kivy](https://kivy.org).
 
 This is a toy simulation for testing if the fast array handling from Numpy and the easy access to OpenGL bitmaps from Kivy are enough when drawing hundreds of ants with their pheromone paths. Seems to be so.
 
