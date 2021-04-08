@@ -22,6 +22,8 @@ RETURN_AT = 2000
 GOALS = 30
 ROCKS = 30
 GOAL_SIZE = (20, 150)
+IN_SCENT_STRENGTH = 20
+PATH_INTEGRATION = False
 
 STONE_COLOR = [80, 80, 80, 255]
 STONE_COLOR_FLOAT = [STONE_COLOR[0] / 255, STONE_COLOR[1] / 255, STONE_COLOR[2] / 255, STONE_COLOR[3] / 255]
@@ -41,13 +43,8 @@ scent_in_rgba_base_array = np.full([SIZE[0], SIZE[1],  4], [128, 128, 240, 0], d
 scent_in_alpha_base_array = np.full([SIZE[0], SIZE[1],  4], [5, 7, 1, 20], dtype=np.uint8)
 
 PI2 = math.pi * 2
-HALF_PI = math.pi / 2
 MAX_X = SIZE[0] - 1
 MAX_Y = SIZE[1] - 1
-
-IN_SCENT_STRENGTH = 20
-
-PATH_INTEGRATION = False
 
 
 def limit_radian(r):
