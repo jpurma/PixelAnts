@@ -239,7 +239,6 @@ class Ant:
                 y = int(fy)
                 print('dead end')
                 break
-            
         self.fx = fx
         self.fy = fy
         self.x = x
@@ -271,16 +270,17 @@ class Ant:
                 food_left = food_array[self.y][self.x]
                 world_array[self.y][self.x] = [255, 160, 160, min((255, 200 + food_left * 2)) if food_left else 0]
                 self.d = opposite(self.d)
+
         if self.mode == Ant.RETURNING:
             if (scent_out_direction := self.pick_scent_out(.7)) is not None:
                 self.d = opposite(scent_out_direction)
-            elif (scent_in_direction := self.pick_scent_in(.7)) is not None and False:
-                self.d = scent_in_direction
-                self.has_last_route = True
-            elif PATH_INTEGRATION and False:
-                self.d = opposite(self.last_route_d)
-                if self.last_route_dist <= speed:
-                    self.has_last_route = False
+            # elif (scent_in_direction := self.pick_scent_in(.7)) is not None:
+            #     self.d = scent_in_direction
+            #     self.has_last_route = True
+            # elif PATH_INTEGRATION and self.has_last_route:
+            #     self.d = opposite(self.last_route_d)
+            #     if self.last_route_dist <= speed:
+            #         self.has_last_route = False
             elif PATH_INTEGRATION and self.travel_time < 1000:
                 # Go home
                 self.d = opposite(self.home_d)
@@ -304,6 +304,7 @@ class Ant:
             if self.at_home():
                 self.mode = Ant.FORAGING
                 self.travel_time = 0
+
         else:
             if (scent_in_direction := self.pick_scent_in(.7)) is not None:
                 self.d = opposite(scent_in_direction)
@@ -335,7 +336,6 @@ class Rock:
         while abs(screen_cx - center_x) < radius and abs(screen_cy - center_y) < radius:
             center_x = randint(0, MAX_X)
             center_y = randint(0, MAX_Y)
-
         self.points = []
         rotation = randint(0, 12)
         for n in range(rotation, point_n + rotation):
