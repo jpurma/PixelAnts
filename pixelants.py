@@ -8,43 +8,44 @@ from kivy.graphics.fbo import Fbo
 from kivy.graphics.texture import Texture
 from kivy.graphics.vertex_instructions import Line, Rectangle
 from kivy.clock import Clock
-from kivy.properties import ObjectProperty
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
-SIZE = 800, 800
-HIVE_CENTER = SIZE[0] / 2, SIZE[1] / 2
-Window.size = (800, 800)
+SIZE = W, H = [800, 800]
+HIVE_CENTER = W / 2, H / 2
+Window.size = SIZE
 
 SPEED = 1.5
 ANTS = 400
 RETURN_AT = 2000
 GOALS = 30
 ROCKS = 30
+DECAY_FREQ = 100
+NEW_FOOD_FREQ = 200
 GOAL_SIZE = (20, 150)
 IN_SCENT_STRENGTH = 20
 PATH_INTEGRATION = False
 
 STONE_COLOR = [80, 80, 80, 255]
-STONE_COLOR_FLOAT = [STONE_COLOR[0] / 255, STONE_COLOR[1] / 255, STONE_COLOR[2] / 255, STONE_COLOR[3] / 255]
+STONE_COLOR_FLOAT = list(np.array(STONE_COLOR) / 255)
 
 ant_list = []
 
-ant_world_array = np.zeros([SIZE[0], SIZE[1],  4], dtype=np.uint8)
-world_array = np.zeros([SIZE[0], SIZE[1],  4], dtype=np.uint8)
-food_array = np.zeros([SIZE[0], SIZE[1]], dtype=np.uint32)
-scent_out_distance_array = np.zeros([SIZE[0], SIZE[1]], dtype=np.uint32)
-scent_out_direction_array = np.zeros([SIZE[0], SIZE[1]], dtype=np.float32)
-scent_in_decay_array = np.zeros([SIZE[0], SIZE[1], 10], dtype=np.int32)
-scent_in_direction_array = np.zeros([SIZE[0], SIZE[1], 10], dtype=np.float32)
-scent_in_decay_element_count_array = np.zeros([SIZE[0], SIZE[1]], dtype=np.uint32)
-scent_in_rgba_array = np.zeros([SIZE[0], SIZE[1],  4], dtype=np.uint8)
-scent_in_rgba_base_array = np.full([SIZE[0], SIZE[1],  4], [128, 128, 240, 0], dtype=np.uint8)
-scent_in_alpha_base_array = np.full([SIZE[0], SIZE[1],  4], [5, 7, 1, 20], dtype=np.uint8)
+ant_world_array = np.zeros(SIZE + [4], dtype=np.uint8)
+world_array = np.zeros(SIZE + [4], dtype=np.uint8)
+food_array = np.zeros(SIZE, dtype=np.uint32)
+scent_out_distance_array = np.zeros(SIZE, dtype=np.uint32)
+scent_out_direction_array = np.zeros(SIZE, dtype=np.float32)
+scent_in_decay_array = np.zeros(SIZE + [10], dtype=np.int32)
+scent_in_direction_array = np.zeros(SIZE + [10], dtype=np.float32)
+scent_in_decay_element_count_array = np.zeros(SIZE, dtype=np.uint32)
+scent_in_rgba_array = np.zeros(SIZE + [4], dtype=np.uint8)
+scent_in_rgba_base_array = np.full(SIZE + [4], [128, 128, 240, 0], dtype=np.uint8)
+scent_in_alpha_base_array = np.full(SIZE + [4], [5, 7, 1, 20], dtype=np.uint8)
 
 PI2 = math.pi * 2
-MAX_X = SIZE[0] - 1
-MAX_Y = SIZE[1] - 1
+MAX_X = W - 1
+MAX_Y = H - 1
 
 
 def limit_radian(r):
@@ -93,8 +94,14 @@ def opposite(d):
     return nd - PI2 if nd > PI2 else nd
 
 
+def is_occupied(x, y):
+    if y < 0 or y > MAX_Y or x < 0 or x > MAX_X:
+        return True
+    rgba = world_array[y][x]
+    return all(rgba == STONE_COLOR)
+
+
 class Ant:
-    # Modes and their colors
     FORAGING = 0
     FORAGING_RGBA = [255, 225, 50, 255]
     RETURNING = 1
@@ -113,7 +120,7 @@ class Ant:
         self.fx = float(x)
         self.y = int(y)
         self.fy = float(y)
-        self.d = random() * math.pi * 2
+        self.d = random() * PI2
         self.home_d = 0.0
         self.dist = 0.0
 
@@ -121,22 +128,20 @@ class Ant:
         # remain inside world limits
         hit = False
         if self.x < 0:
-            self.x = 0
             self.fx = 0.0
             hit = True
         elif self.x > MAX_X:
-            self.x = MAX_X
             self.fx = float(MAX_X)
             hit = True
         if self.y < 0:
-            self.y = 0
             self.fy = 0.0
             hit = True
         elif self.y > MAX_Y:
-            self.y = MAX_Y
             self.fy = float(MAX_Y)
             hit = True
         if hit:
+            self.x = int(self.fx)
+            self.y = int(self.fy)
             self.d = opposite(self.d)
 
     def at_food(self):
@@ -212,36 +217,29 @@ class Ant:
             diff = -diff
         return limit_radian(target_rad + diff), new_dist
 
-    def is_occupied(self, x, y):
-        if y < 0 or y > MAX_Y or x < 0 or x > MAX_X:
-            return True
-        rgba = world_array[y][x]
-        return all(rgba == STONE_COLOR)
-
     def move_step(self, speed):
-        is_blocked = True
         attempts = 0
-        fx = fy = x = y = 0
-        while is_blocked:
+        while True:
             attempts += 1
             fx = self.fx + speed * math.cos(self.d)
             fy = self.fy + speed * math.sin(self.d)
             x = int(fx)
             y = int(fy)
-            is_blocked = self.is_occupied(x, y)
-            if is_blocked:
-                if random() < 0.0001:
-                    self.turn_direction *= -1
-                    attempts = -attempts
-                change = math.pi / 32 * self.turn_direction
-                #change = abs(d_change() / 8) * self.turn_direction
-                self.d = limit_radian(self.d + change)
+            if not is_occupied(x, y):
+                break
+            if random() < 0.0001:
+                self.turn_direction *= -1
+                attempts = -attempts
+            change = math.pi / 32 * self.turn_direction
+            #change = abs(d_change() / 8) * self.turn_direction
+            self.d = limit_radian(self.d + change)
             if attempts == 64:
                 fx, fy = HIVE_CENTER
                 x = int(fx)
                 y = int(fy)
                 print('dead end')
                 break
+            
         self.fx = fx
         self.fy = fy
         self.x = x
@@ -353,7 +351,7 @@ class Rock:
 def turn_to_world_array(pixels):
     global world_array
     buffer = np.frombuffer(pixels, dtype=np.uint8)
-    world_array = np.reshape(buffer, (SIZE[0], SIZE[1], 4)).copy()
+    world_array = np.reshape(buffer, (W, H, 4)).copy()
 
 
 class World(Widget):
@@ -383,7 +381,7 @@ class World(Widget):
     def add_food(self):
         c_x = randint(0, MAX_X)
         c_y = randint(0, MAX_Y)
-        load = randint(GOAL_SIZE[0], GOAL_SIZE[1])
+        load = randint(*GOAL_SIZE)
         size = load / 3
         for i in range(0, load):
             x = int(round(limit(0, c_x + (random() * load / 2.5) - size, MAX_X)))
@@ -401,7 +399,7 @@ class World(Widget):
                 dtype=np.uint8
             ), 2),
             dtype=np.uint8)
-        scent_in_alpha_array = scent_in_alpha_base_array * scent_in_decay_element_count_array.reshape(SIZE[0], SIZE[1], 1)
+        scent_in_alpha_array = scent_in_alpha_base_array * scent_in_decay_element_count_array.reshape(W, H, 1)
         scent_in_rgba_array = scent_in_rgba_base_array + scent_in_alpha_array
 
     def add_ground(self):
@@ -425,7 +423,6 @@ class World(Widget):
 
 
 class PixelAnts(App):
-    texture = ObjectProperty()
 
     def __init__(self, **kwargs):
         super(PixelAnts, self).__init__(**kwargs)
@@ -448,9 +445,9 @@ class PixelAnts(App):
         global ant_world_array
         ant_world_array = world_array.copy()
         self.tick += 1
-        if self.tick % 100 == 0:
+        if self.tick % DECAY_FREQ == 0:
             self.main.global_decay()
-        if self.tick % 200 == 0:
+        if self.tick % NEW_FOOD_FREQ == 0:
             self.main.add_food()
         for ant in ant_list:
             ant.travel(SPEED)
