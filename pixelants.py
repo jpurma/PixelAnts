@@ -34,14 +34,14 @@ ant_list = []
 ant_world_array = np.zeros(SIZE + [4], dtype=np.uint8)
 world_array = np.zeros(SIZE + [4], dtype=np.uint8)
 food_array = np.zeros(SIZE, dtype=np.uint32)
-scent_out_distance_array = np.zeros(SIZE, dtype=np.uint32)
-scent_out_direction_array = np.zeros(SIZE, dtype=np.float32)
-scent_in_decay_array = np.zeros(SIZE + [10], dtype=np.int32)
-scent_in_direction_array = np.zeros(SIZE + [10], dtype=np.float32)
-scent_in_decay_element_count_array = np.zeros(SIZE, dtype=np.uint32)
-scent_in_rgba_array = np.zeros(SIZE + [4], dtype=np.uint8)
-scent_in_rgba_base_array = np.full(SIZE + [4], [128, 128, 240, 0], dtype=np.uint8)
-scent_in_alpha_base_array = np.full(SIZE + [4], [5, 7, 1, 20], dtype=np.uint8)
+foraging_scent_distance_array = np.zeros(SIZE, dtype=np.uint32)
+foraging_scent_direction_array = np.zeros(SIZE, dtype=np.float32)
+returning_scent_decay_array = np.zeros(SIZE + [10], dtype=np.int32)
+returning_scent_direction_array = np.zeros(SIZE + [10], dtype=np.float32)
+returning_scent_decay_element_count_array = np.zeros(SIZE, dtype=np.uint32)
+returning_scent_rgba_array = np.zeros(SIZE + [4], dtype=np.uint8)
+returning_scent_rgba_base_array = np.full(SIZE + [4], [128, 128, 240, 0], dtype=np.uint8)
+returning_scent_alpha_base_array = np.full(SIZE + [4], [5, 7, 1, 20], dtype=np.uint8)
 
 PI2 = math.pi * 2
 MAX_X = W - 1
@@ -152,18 +152,18 @@ class Ant:
         if self.dist < 9:
             return True
 
-    def leave_scent_out(self, as_opposite=False):
-        scent_closeness = scent_out_distance_array[self.y][self.x]
+    def leave_foraging_scent(self, as_opposite=False):
+        scent_closeness = foraging_scent_distance_array[self.y][self.x]
         if not scent_closeness or scent_closeness > self.travel_time:
-            scent_out_distance_array[self.y][self.x] = self.travel_time
-            scent_out_direction_array[self.y][self.x] = self.d if not as_opposite else opposite(self.d)
+            foraging_scent_distance_array[self.y][self.x] = self.travel_time
+            foraging_scent_direction_array[self.y][self.x] = self.d if not as_opposite else opposite(self.d)
             closeness_log = math.log2(max((1, 5000 - self.travel_time))) / 13
             r, g, b = Color(self.d / PI2, 0.9, closeness_log, mode='hsv').rgb
             world_array[self.y][self.x] = [r * 255, g * 255, b * 255, 80]
 
-    def leave_scent_in(self):
-        decays = [decay for decay in scent_in_decay_array[self.y][self.x] if decay > 0]
-        directions = list(scent_in_direction_array[self.y][self.x])
+    def leave_returning_scent(self):
+        decays = [decay for decay in returning_scent_decay_array[self.y][self.x] if decay > 0]
+        directions = list(returning_scent_direction_array[self.y][self.x])
         directions = directions[:len(decays)]
         decays.append(IN_SCENT_STRENGTH)
         directions.append(self.d)
@@ -174,27 +174,27 @@ class Ant:
         elif len(decays) < 10:
             decays += [0] * (10 - len(decays))
             directions += [0] * (10 - len(directions))
-        scent_in_decay_array[self.y][self.x] = decays
-        scent_in_direction_array[self.y][self.x] = directions
-        scent_in_decay_element_count_array[self.y][self.x] = scents_size
-        scent_in_rgba_array[self.y][self.x] = [128 + 5 * scents_size,
+        returning_scent_decay_array[self.y][self.x] = decays
+        returning_scent_direction_array[self.y][self.x] = directions
+        returning_scent_decay_element_count_array[self.y][self.x] = scents_size
+        returning_scent_rgba_array[self.y][self.x] = [128 + 5 * scents_size,
                                                128 + 7 * scents_size,
                                                240 + scents_size,
                                                20 + 20 * scents_size]
 
-    def pick_scent_out(self, chance=.3, rebel=.1):
+    def pick_foraging_scent(self, chance=.3, rebel=.1):
         if random() < rebel or random() > chance:
             return
-        if scent_out_distance_array[self.y][self.x]:
-            return scent_out_direction_array[self.y][self.x]
+        if foraging_scent_distance_array[self.y][self.x]:
+            return foraging_scent_direction_array[self.y][self.x]
 
-    def pick_scent_in(self, chance=.3, rebel=.1):
+    def pick_returning_scent(self, chance=.3, rebel=.1):
         if random() < rebel:
             return
-        scents = [i for i, decay in enumerate(scent_in_decay_array[self.y][self.x]) if decay > 0]
+        scents = [i for i, decay in enumerate(returning_scent_decay_array[self.y][self.x]) if decay > 0]
         for s in scents:
             if random() < chance:
-                scent_direction = scent_in_direction_array[(self.y, self.x, choice(scents))]
+                scent_direction = returning_scent_direction_array[(self.y, self.x, choice(scents))]
                 self.has_last_route = True
                 self.last_route_dist = 0
                 return scent_direction
@@ -272,10 +272,10 @@ class Ant:
                 self.d = opposite(self.d)
 
         if self.mode == Ant.RETURNING:
-            if (scent_out_direction := self.pick_scent_out(.7)) is not None:
-                self.d = opposite(scent_out_direction)
-            # elif (scent_in_direction := self.pick_scent_in(.7)) is not None:
-            #     self.d = scent_in_direction
+            if (foraging_scent_direction := self.pick_foraging_scent(.7)) is not None:
+                self.d = opposite(foraging_scent_direction)
+            # elif (returning_scent_direction := self.pick_returning_scent(.7)) is not None:
+            #     self.d = returning_scent_direction
             #     self.has_last_route = True
             # elif PATH_INTEGRATION and self.has_last_route:
             #     self.d = opposite(self.last_route_d)
@@ -292,11 +292,11 @@ class Ant:
                 self.mode = Ant.FORAGING
                 self.travel_time = 0
             else:
-                self.leave_scent_in()
+                self.leave_returning_scent()
 
         elif self.mode == Ant.RETURNING_EMPTY:
-            if (scent_out_direction := self.pick_scent_out(.7)) is not None:
-                self.d = opposite(scent_out_direction)
+            if (foraging_scent_direction := self.pick_foraging_scent(.7)) is not None:
+                self.d = opposite(foraging_scent_direction)
             else:
                 # Random walk
                 self.d = limit_radian(self.d + d_change() / 4)
@@ -306,14 +306,14 @@ class Ant:
                 self.travel_time = 0
 
         else:
-            if (scent_in_direction := self.pick_scent_in(.7)) is not None:
-                self.d = opposite(scent_in_direction)
+            if (returning_scent_direction := self.pick_returning_scent(.7)) is not None:
+                self.d = opposite(returning_scent_direction)
                 self.has_last_route = True
             else:
                 # Random walk
                 self.d = limit_radian(self.d + d_change() / 4)
             self.move_step(speed)
-            self.leave_scent_out()
+            self.leave_foraging_scent()
             if self.travel_time > RETURN_AT:
                 self.mode = Ant.RETURNING_EMPTY
 
@@ -368,7 +368,7 @@ class World(Widget):
             ground_fbo = Fbo(size=self.size)
             Rectangle(pos=(0, 0), size=(w * 2, h * 2), texture=ground_fbo.texture)
             Rectangle(pos=(0, 0), size=(w * 2, h * 2), texture=app.texture)
-            Rectangle(pos=(0, 0), size=(w * 2, h * 2), texture=app.paths_in_texture)
+            Rectangle(pos=(0, 0), size=(w * 2, h * 2), texture=app.returning_paths_texture)
         with ground_fbo:
             Color(*STONE_COLOR_FLOAT)
             Line(rectangle=[0, 0, w, h], width=4)
@@ -390,17 +390,17 @@ class World(Widget):
             world_array[y][x] = [255, 160, 160, min((255, 200 + food_array[y][x] * 2))]
 
     def global_decay(self):
-        global scent_in_decay_element_count_array, scent_in_rgba_array
-        np.putmask(scent_in_decay_array, scent_in_decay_array >= 1, scent_in_decay_array - 1)
-        scent_in_decay_element_count_array = np.array(np.ma.count_masked(
+        global returning_scent_decay_element_count_array, returning_scent_rgba_array
+        np.putmask(returning_scent_decay_array, returning_scent_decay_array >= 1, returning_scent_decay_array - 1)
+        returning_scent_decay_element_count_array = np.array(np.ma.count_masked(
             np.ma.array(
-                scent_in_decay_array,
-                mask=np.ma.make_mask(scent_in_decay_array),
+                returning_scent_decay_array,
+                mask=np.ma.make_mask(returning_scent_decay_array),
                 dtype=np.uint8
             ), 2),
             dtype=np.uint8)
-        scent_in_alpha_array = scent_in_alpha_base_array * scent_in_decay_element_count_array.reshape(W, H, 1)
-        scent_in_rgba_array = scent_in_rgba_base_array + scent_in_alpha_array
+        returning_scent_alpha_array = returning_scent_alpha_base_array * returning_scent_decay_element_count_array.reshape(W, H, 1)
+        returning_scent_rgba_array = returning_scent_rgba_base_array + returning_scent_alpha_array
 
     def add_ground(self):
         for rock_id in range(0, ROCKS):
@@ -428,16 +428,16 @@ class PixelAnts(App):
         super(PixelAnts, self).__init__(**kwargs)
         self.main = None
         self.tick = 0
-        self.paths_in_texture = None
+        self.returning_paths_texture = None
 
     def build(self):
         Clock.schedule_interval(self.refresh, 0)
         self.texture = Texture.create(size=SIZE, colorfmt='rgba', bufferfmt='ubyte')
         self.texture.min_filter = 'nearest'
         self.texture.mag_filter = 'nearest'
-        self.paths_in_texture = Texture.create(size=SIZE, colorfmt='rgba', bufferfmt='ubyte')
-        self.paths_in_texture.min_filter = 'nearest'
-        self.paths_in_texture.mag_filter = 'nearest'
+        self.returning_paths_texture = Texture.create(size=SIZE, colorfmt='rgba', bufferfmt='ubyte')
+        self.returning_paths_texture.min_filter = 'nearest'
+        self.returning_paths_texture.mag_filter = 'nearest'
         self.main = World(self)
         return self.main
 
@@ -452,7 +452,7 @@ class PixelAnts(App):
         for ant in ant_list:
             ant.travel(SPEED)
         self.texture.blit_buffer(ant_world_array.tobytes(), colorfmt='rgba', bufferfmt='ubyte')
-        self.paths_in_texture.blit_buffer(scent_in_rgba_array.tobytes(), colorfmt='rgba', bufferfmt='ubyte')
+        self.returning_paths_texture.blit_buffer(returning_scent_rgba_array.tobytes(), colorfmt='rgba', bufferfmt='ubyte')
         self.main.canvas.flag_update()
 
 
